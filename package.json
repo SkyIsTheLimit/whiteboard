@@ -66,5 +66,6 @@
         "description": "Optional Google OAuth client secret."
       }
     }
-  }
+  },
+  "license": "MIT"
 }

@@ -75,3 +75,7 @@ Set `BETTER_AUTH_SECRET` to a fresh random secret and `BETTER_AUTH_URL` to the p
 The badge opens Cloudflare's setup for the public repository. Check the provisioned bindings, configure the auth secrets, and apply the D1 migrations before using the app. See the [Deploy to Cloudflare setup guide](https://developers.cloudflare.com/workers/platform/deploy-buttons/).
 
 See the [TanStack Start Cloudflare setup](https://tanstack.com/start/latest/docs/framework/react/guide/hosting) and the [Cloudflare hibernating WebSocket guide](https://developers.cloudflare.com/durable-objects/best-practices/websockets/) for runtime details.
+
+## License
+
+Whiteboard is licensed under the [MIT License](LICENSE).
