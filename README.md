@@ -1,81 +1,70 @@
-# Whiteboard
+<p align="center">
+  <img src="docs/whiteboard-icon.svg" width="80" height="80" alt="Whiteboard icon">
+</p>
 
-[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/SkyIsTheLimit/whiteboard)
+<h1 align="center">Whiteboard</h1>
 
-A private, collaborative canvas for flowcharts and lightweight diagrams. Create a blank board, draw shapes and text, connect them, and invite signed-in teammates as viewers or editors.
+<p align="center"><strong>Draw together. Host it yourself.</strong></p>
 
-Whiteboard uses TanStack Start, React, TypeScript, Tailwind, and shadcn-style Radix components. A Cloudflare Worker serves the app and authorizes requests. D1 stores Better Auth users, sessions, and board access. A SQLite Durable Object for each board persists the drawing and coordinates cursors and changes over hibernating WebSockets.
+<p align="center">
+  A private whiteboard you can run yourself.<br>
+  Draw a flowchart, invite a teammate, and see their cursor as they work.
+</p>
 
-## Screenshots
+<p align="center">
+  <a href="https://deploy.workers.cloudflare.com/?url=https://github.com/SkyIsTheLimit/whiteboard"><img src="https://deploy.workers.cloudflare.com/button" alt="Deploy to Cloudflare"></a>
+</p>
 
-![Whiteboard Boards screen showing owned and shared boards](docs/screenshots/boards.webp)
+<p align="center">
+  <a href="#quick-start">Quick start</a> · <a href="#how-to-use">How to use</a> · <a href="#deploy-to-cloudflare">Deploy to Cloudflare</a> · <a href="#how-it-works">How it works</a>
+</p>
 
 ![Checkout flow board with Sam and Riley’s live collaborator cursors](docs/screenshots/collaborating.webp)
 
-## Run locally
+![Whiteboard Boards screen showing owned and shared boards](docs/screenshots/boards.webp)
 
-Use Node.js 22.13+ on the 22.x line, or Node.js 24 or newer, with npm. Local development uses Wrangler's emulated D1 and Durable Objects.
+## Quick start
+
+Use npm with Node.js 22.13+ on the 22.x line or Node.js 24 or newer. Wrangler runs D1 and Durable Objects locally.
 
 ```sh
 npm ci
 cp .dev.vars.example .dev.vars
 ```
 
-Replace the example `BETTER_AUTH_SECRET` in `.dev.vars` with the output of `openssl rand -hex 32`. Then run:
+Replace the example `BETTER_AUTH_SECRET` in `.dev.vars` with the output of `openssl rand -hex 32`. Then start the app.
 
 ```sh
 npm run db:migrate
 npm run dev -- --host 127.0.0.1 --port 4173 --strictPort
 ```
 
-Open http://127.0.0.1:4173 and create an account. Use separate browser profiles to try collaboration with two accounts. Local data lives in `.wrangler/state`. Keep that directory to retain local boards between runs.
+Open <http://127.0.0.1:4173> and create an account. Try two accounts in separate browser profiles to see live edits. Keep `.wrangler/state` to retain your local boards.
 
-## Board controls
+## How to use
 
-- Use **Select** to move and resize elements, Shift-click to add to a selection, or drag from empty space to select several elements.
-- Use **Shape**, **Text**, and **Connector** to add elements. Connectors remain anchored as their endpoint shapes move. Double-click an element to edit its label.
-- Use **Hand** to pan, or the bottom-right controls to zoom and fit the whole drawing. Use the toolbar or keyboard to duplicate, delete, undo, and redo.
-- Open **Share** as the owner to create a role-specific invite. The ordinary board URL requires membership. Revoking an invite stops new redemptions, and removing a member ends their existing access.
+- Move or resize items with **Select**. Shift-click to add items to the selection.
+- Add shapes and text, then link them with **Connector**. Double-click an item to edit its label.
+- Pan with **Hand**. Zoom or fit the board from the bottom-right controls.
+- If you own the board, use **Share** to invite a viewer or editor. Invitees sign in to join, and the board URL stays members-only. Revoke a link to stop new joins or remove a member to end their access.
 
-## Checks
+## Deploy to Cloudflare
 
-```sh
-npm run lint
-npm run typecheck
-npm test
-npm run build
-```
+The badge opens Cloudflare’s deployment setup. Check the bindings, configure auth, and apply the D1 migrations before opening the app. [Cloudflare deploy button guide](https://developers.cloudflare.com/workers/platform/deploy-buttons/)
 
-With the local preview running, `npm run test:worker` exercises username authentication, private access, two-way edits, viewer enforcement, reconnect, and revocation against the local Worker. It creates synthetic accounts and removes its board at the end. Set `WHITEBOARD_TEST_ORIGIN` if the preview uses a different origin.
-
-## Local performance
-
-Measured in Chrome 157 at 1474 × 1160 CSS pixels and device pixel ratio 2. The browser harness used the production-bundled canvas and collaboration client. One signed-in editor generated one input per animation frame while a second editor submitted a durable move every 150 ms. Each action contributed 43 animation-frame intervals. The idle median was 14.3 ms. The 60 Hz frame budget is about 16.7 ms.
-
-| Board size | Pan p95 | Zoom p95 | Select p95 | Drag p95 | Zoom-to-fit p95 |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| 1,000 shapes + 1,000 connectors | 14.8 ms | 14.4 ms | 14.9 ms | 14.4 ms | 14.4 ms |
-| 10,000 shapes + 10,000 connectors (exploratory) | 14.9 ms | 15.3 ms | 15.3 ms | 15.1 ms | 42.9 ms |
-
-The fit phase repeatedly redrew the fitted board. It exceeded 20 ms on all 43 intervals in the exploratory run. The other phases benefited from drawing only geometry intersecting the viewport.
-
-In a separate loopback Worker test, two authenticated sockets submitted concurrent edits. Time from send to receipt on the other socket across 60 updates was 1.5 ms median and 2.3 ms p95 for the 1,000-plus-1,000 board. The exploratory board measured 1.4 ms median and 4.8 ms p95. These transport measurements include local Worker processing and exclude browser rendering and internet transit.
-
-## Deploy to your own Cloudflare account
-
-Create a D1 database with `npx wrangler d1 create whiteboard`. In `wrangler.jsonc`, set the database ID on the existing `DB` binding. Keep the `BOARD_ROOMS` binding and the SQLite class migration. Apply the D1 migrations, build, and deploy:
+For a manual deploy, create a database with `npx wrangler d1 create whiteboard`. Set its ID on the `DB` binding in `wrangler.jsonc`. Keep the `BOARD_ROOMS` binding and the SQLite class migration.
 
 ```sh
 npx wrangler d1 migrations apply DB --remote
 npm run deploy
 ```
 
-Set `BETTER_AUTH_SECRET` to a fresh random secret and `BETTER_AUTH_URL` to the public HTTPS origin using Worker secrets or the Cloudflare dashboard. Keep the origin consistent with the site visitors will use. For optional Google sign-in, set both `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`, and register `<your origin>/api/auth/callback/google` as the redirect URI with Google.
+In the Cloudflare dashboard, set `BETTER_AUTH_SECRET` to a fresh random secret and `BETTER_AUTH_URL` to the public HTTPS origin. For optional Google sign-in, set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` and register `<your origin>/api/auth/callback/google` as the redirect URI.
 
-The badge opens Cloudflare's setup for the public repository. Check the provisioned bindings, configure the auth secrets, and apply the D1 migrations before using the app. See the [Deploy to Cloudflare setup guide](https://developers.cloudflare.com/workers/platform/deploy-buttons/).
+## How it works
 
-See the [TanStack Start Cloudflare setup](https://tanstack.com/start/latest/docs/framework/react/guide/hosting) and the [Cloudflare hibernating WebSocket guide](https://developers.cloudflare.com/durable-objects/best-practices/websockets/) for runtime details.
+A TanStack Start and React client draws the board on a Canvas 2D surface.
 
-## License
+A Cloudflare Worker serves the app. D1 stores Better Auth users and sessions, along with board access.
 
-Whiteboard is licensed under the [MIT License](LICENSE).
+Each board has a SQLite Durable Object that saves the drawing and syncs edits and cursors over hibernating WebSockets.
