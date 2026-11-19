@@ -1,6 +1,12 @@
 import type { BoardChange, BoardElement, Point } from '../shared/model'
 import type { Presence } from '../shared/protocol'
-import type { Bounds, Camera, ConnectorElement, Handle, NodeElement } from './geometry'
+import type {
+  Bounds,
+  Camera,
+  ConnectorElement,
+  Handle,
+  NodeElement,
+} from './geometry'
 
 export type Tool = 'select' | 'hand' | 'shape' | 'text' | 'connector'
 export type Shape = 'rectangle' | 'ellipse' | 'diamond'
@@ -28,10 +34,20 @@ export type EditorProps = {
 }
 
 export type Gesture =
-  | {type:'pan'; start:Point; camera:Camera}
-  | {type:'move'; start:Point; nodes:NodeElement[]}
-  | {type:'resize'; start:Point; nodes:NodeElement[]; bounds:Bounds; handle:Handle}
-  | {type:'draw'; start:Point; kind:Shape}
-  | {type:'box'; start:Point; selected:Set<string>}
+  | { type: 'pan'; start: Point; camera: Camera }
+  | { type: 'move'; start: Point; nodes: NodeElement[] }
+  | {
+      type: 'resize'
+      start: Point
+      nodes: NodeElement[]
+      bounds: Bounds
+      handle: Handle
+    }
+  | { type: 'draw'; start: Point; kind: Shape }
+  | { type: 'box'; start: Point; selected: Set<string> }
 
-export type Anchor = {id:string; side?:ConnectorElement['sourceSide']; point:Point}
+export type Anchor = {
+  id: string
+  side?: ConnectorElement['sourceSide']
+  point: Point
+}

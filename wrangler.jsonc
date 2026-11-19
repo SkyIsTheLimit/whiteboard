@@ -5,15 +5,20 @@
   "compatibility_date": "2026-11-18",
   "compatibility_flags": ["nodejs_compat"],
   "upload_source_maps": true,
+  "keep_vars": true,
   "observability": {
     "enabled": true,
-    "traces": { "enabled": true, "head_sampling_rate": 0.1 }
+    "traces": { "enabled": true, "head_sampling_rate": 0.1 },
   },
   "d1_databases": [
-    { "binding": "DB", "database_name": "whiteboard", "migrations_dir": "migrations" }
+    {
+      "binding": "DB",
+      "database_name": "whiteboard-test",
+      "migrations_dir": "migrations",
+    },
   ],
   "durable_objects": {
-    "bindings": [{ "name": "BOARD_ROOMS", "class_name": "BoardRoom" }]
+    "bindings": [{ "name": "BOARD_ROOMS", "class_name": "BoardRoom" }],
   },
-  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["BoardRoom"] }]
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["BoardRoom"] }],
 }

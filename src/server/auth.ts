@@ -8,10 +8,18 @@ export function googleCredentials(env: WorkerEnv) {
 }
 
 export function authFor(env: WorkerEnv, url: URL) {
-  const local = ['localhost', '127.0.0.1', '[::1]', 'terminal.local'].includes(url.hostname)
+  const local = ['localhost', '127.0.0.1', '[::1]', 'terminal.local'].includes(
+    url.hostname,
+  )
   const baseURL = env.BETTER_AUTH_URL || (local ? url.origin : undefined)
-  if (!baseURL || !env.BETTER_AUTH_SECRET || env.BETTER_AUTH_SECRET.length < 32) {
-    throw new Error('Configure BETTER_AUTH_SECRET and the public BETTER_AUTH_URL.')
+  if (
+    !baseURL ||
+    !env.BETTER_AUTH_SECRET ||
+    env.BETTER_AUTH_SECRET.length < 32
+  ) {
+    throw new Error(
+      'Configure BETTER_AUTH_SECRET and the public BETTER_AUTH_URL.',
+    )
   }
 
   const google = googleCredentials(env)

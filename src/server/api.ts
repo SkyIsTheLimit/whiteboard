@@ -1,27 +1,55 @@
 import { z } from 'zod'
 import { authFor, googleCredentials } from './auth'
-import { createBoard, deleteBoard, getBoard, listBoards, renameBoard } from './catalog'
+import {
+  createBoard,
+  deleteBoard,
+  getBoardWithRoom,
+  renameBoard,
+} from './catalog'
+import { listBoardPreviews } from './board-reads'
 import type { WorkerEnv } from './env'
 import { HttpError, json, readBody, sameOrigin } from './http'
 import { handleAuth } from './session-access'
-import { createInvite, listAccess, redeemInvite, revokeInvite, revokeMember } from './sharing'
+import {
+  createInvite,
+  listAccess,
+  redeemInvite,
+  revokeInvite,
+  revokeMember,
+} from './sharing'
 
 const title = z.string().trim().min(1).max(120)
 const boardInput = z.object({ title })
 const newBoardInput = z.object({ title: title.optional() })
 const inviteInput = z.object({ role: z.enum(['editor', 'viewer']) })
 
-export async function handleApi(request: Request, env: WorkerEnv, url: URL, ctx: ExecutionContext): Promise<Response> {
+export async function handleApi(
+  request: Request,
+  env: WorkerEnv,
+  url: URL,
+  ctx: ExecutionContext,
+): Promise<Response> {
   try {
     return await routeApi(request, env, url, ctx)
   } catch (error) {
-    if (error instanceof HttpError) return json({ error: error.message }, error.status)
-    console.error(JSON.stringify({ event: 'whiteboard_request_failed', error: error instanceof Error ? error.name : 'Unknown' }))
+    if (error instanceof HttpError)
+      return json({ error: error.message }, error.status)
+    console.error(
+      JSON.stringify({
+        event: 'whiteboard_request_failed',
+        error: error instanceof Error ? error.name : 'Unknown',
+      }),
+    )
     return json({ error: 'Whiteboard could not complete the request.' }, 500)
   }
 }
 
-async function routeApi(request: Request, env: WorkerEnv, url: URL, ctx: ExecutionContext): Promise<Response> {
+async function routeApi(
+  request: Request,
+  env: WorkerEnv,
+  url: URL,
+  ctx: ExecutionContext,
+): Promise<Response> {
   const method = request.method
   const [, , resource, id, action, target, extra] = url.pathname.split('/')
   if (method !== 'GET' && method !== 'HEAD') sameOrigin(request, url)
@@ -40,23 +68,28 @@ async function routeApi(request: Request, env: WorkerEnv, url: URL, ctx: Executi
     if (!board) throw new HttpError(404, 'This invite is no longer available.')
     return json({ board })
   }
-  if (resource !== 'boards' || extra) throw new HttpError(404, 'Page unavailable.')
+  if (resource !== 'boards' || extra)
+    throw new HttpError(404, 'Page unavailable.')
   if (!id && method === 'GET') {
-    const { results } = await listBoards(env.DB, user.id)
-    const boards = await Promise.all(results.map(async (board, index) => {
-      if (index >= 24) return board
-      const preview = await env.BOARD_ROOMS.getByName(board.id).preview().catch(() => undefined)
-      return { ...board, preview }
-    }))
-    return json({ boards })
+    return json({ boards: await listBoardPreviews(env, user.id) })
   }
   if (!id && method === 'POST') {
     const input = await readBody(request, newBoardInput)
-    return json({ board: await createBoard(env.DB, user.id, input.title ?? 'Untitled board') }, 201)
+    return json(
+      {
+        board: await createBoard(
+          env.DB,
+          user.id,
+          input.title ?? 'Untitled board',
+        ),
+      },
+      201,
+    )
   }
   if (!id) throw new HttpError(405, 'Method unavailable.')
-  const board = await getBoard(env.DB, id, user.id)
-  if (!board) throw new HttpError(404, 'Board unavailable.')
+  const record = await getBoardWithRoom(env.DB, id, user.id)
+  if (!record) throw new HttpError(404, 'Board unavailable.')
+  const { board, roomName } = record
 
   if (!action && method === 'GET') return json({ board })
   if (action === 'socket' && !target && method === 'GET') {
@@ -72,10 +105,16 @@ async function routeApi(request: Request, env: WorkerEnv, url: URL, ctx: Executi
       'X-Whiteboard-Session': session.session.id,
     })
     // Only known identity fields cross into the room. The room re-reads current access.
-    return env.BOARD_ROOMS.getByName(id).fetch(new Request(`https://whiteboard.internal/${id}`, { headers }))
+    return env.BOARD_ROOMS.getByName(roomName).fetch(
+      new Request(
+        `https://whiteboard.internal/${encodeURIComponent(board.id)}`,
+        { headers },
+      ),
+    )
   }
 
-  if (board.role !== 'owner') throw new HttpError(403, 'Only the board owner can make this change.')
+  if (board.role !== 'owner')
+    throw new HttpError(403, 'Only the board owner can make this change.')
   if (!action && method === 'PATCH') {
     const input = await readBody(request, boardInput)
     const renamed = await renameBoard(env.DB, id, user.id, input.title)
@@ -86,11 +125,13 @@ async function routeApi(request: Request, env: WorkerEnv, url: URL, ctx: Executi
     await deleteBoard(env, id, user.id)
     return new Response(null, { status: 204 })
   }
-  if (action === 'access' && !target && method === 'GET') return json(await listAccess(env.DB, id))
+  if (action === 'access' && !target && method === 'GET')
+    return json(await listAccess(env.DB, id))
   if (action === 'invites' && !target && method === 'POST') {
     const { role } = await readBody(request, inviteInput)
     const { invite, token } = await createInvite(env.DB, id, role)
-    const link = new URL(`/invite/${token}`, env.BETTER_AUTH_URL || url.origin).href
+    const link = new URL(`/invite/${token}`, env.BETTER_AUTH_URL || url.origin)
+      .href
     return json({ invite, url: link }, 201)
   }
   if (action === 'invites' && target && method === 'DELETE') {
@@ -98,7 +139,7 @@ async function routeApi(request: Request, env: WorkerEnv, url: URL, ctx: Executi
     return new Response(null, { status: 204 })
   }
   if (action === 'members' && target && method === 'DELETE') {
-    await revokeMember(env, id, target)
+    await revokeMember(env, id, target, roomName)
     return new Response(null, { status: 204 })
   }
   throw new HttpError(404, 'Page unavailable.')

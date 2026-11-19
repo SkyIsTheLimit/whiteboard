@@ -1,8 +1,14 @@
+import { isHexColor } from '../shared/board-color'
 import { elementsEqual } from '../shared/model'
 import type { BoardChange, BoardElement } from '../shared/model'
 
 type BoardRow = { data: string }
-type RoomState = { revision: number; bytes: number; count: number; deleted: number }
+type RoomState = {
+  revision: number
+  bytes: number
+  count: number
+  deleted: number
+}
 type CommitResult =
   | { status: 'applied'; revision: number }
   | { status: 'duplicate' }
@@ -50,25 +56,40 @@ export class RoomStore {
     this.storage.transactionSync(() => {
       this.sql.exec('DELETE FROM board_elements')
       this.sql.exec('DELETE FROM commits')
-      this.sql.exec('UPDATE room_state SET deleted = 1, bytes = 0, count = 0 WHERE id = 1')
+      this.sql.exec(
+        'UPDATE room_state SET deleted = 1, bytes = 0, count = 0 WHERE id = 1',
+      )
     })
   }
 
   commit(userId: string, id: string, changes: BoardChange[]): CommitResult {
     return this.storage.transactionSync(() => {
-      if (this.sql.exec('SELECT 1 FROM commits WHERE user_id = ? AND id = ?', userId, id).toArray().length) {
+      if (
+        this.sql
+          .exec(
+            'SELECT 1 FROM commits WHERE user_id = ? AND id = ?',
+            userId,
+            id,
+          )
+          .toArray().length
+      ) {
         return { status: 'duplicate' }
       }
       const state = this.state()
-      if (state.deleted) return { status: 'rejected', reason: 'This board was deleted.' }
+      if (state.deleted)
+        return { status: 'rejected', reason: 'This board was deleted.' }
 
       let { bytes, count } = state
       const future = new Map(changes.map((change) => [change.id, change.after]))
       const rows = changes.map(({ id, before, after }) => {
-        const row = this.sql.exec<BoardRow & { bytes: number }>(
-          'SELECT data, bytes FROM board_elements WHERE id = ?', id,
-        ).toArray()[0]
-        if (!elementsEqual(before, row ? parseElement(row.data) : null)) return null
+        const row = this.sql
+          .exec<BoardRow & { bytes: number }>(
+            'SELECT data, bytes FROM board_elements WHERE id = ?',
+            id,
+          )
+          .toArray()[0]
+        if (!elementsEqual(before, row ? parseElement(row.data) : null))
+          return null
         const data = after ? JSON.stringify(after) : ''
         const size = encoder.encode(data).byteLength
         bytes += size - (row?.bytes ?? 0)
@@ -76,15 +97,26 @@ export class RoomStore {
         return { id, before, after, data, size }
       })
       if (rows.some((row) => row === null)) {
-        return { status: 'rejected', reason: 'An element was changed by a collaborator.' }
+        return {
+          status: 'rejected',
+          reason: 'An element was changed by a collaborator.',
+        }
       }
       if (bytes > byteLimit || count > elementLimit) {
-        return { status: 'rejected', reason: 'This board reached its storage limit.' }
+        return {
+          status: 'rejected',
+          reason: 'This board reached its storage limit.',
+        }
       }
 
       const futureElement = (elementId: string) => {
         if (future.has(elementId)) return future.get(elementId)
-        const row = this.sql.exec<BoardRow>('SELECT data FROM board_elements WHERE id = ?', elementId).toArray()[0]
+        const row = this.sql
+          .exec<BoardRow>(
+            'SELECT data FROM board_elements WHERE id = ?',
+            elementId,
+          )
+          .toArray()[0]
         return row ? parseElement(row.data) : null
       }
 
@@ -92,20 +124,33 @@ export class RoomStore {
         if (!row) continue
         const { id: elementId, before, after } = row
         if (after?.type === 'connector') {
-          if (!isAnchor(futureElement(after.sourceId)) || !isAnchor(futureElement(after.targetId))) {
-            return { status: 'rejected', reason: 'Both connector endpoints must exist.' }
+          if (
+            !isAnchor(futureElement(after.sourceId)) ||
+            !isAnchor(futureElement(after.targetId))
+          ) {
+            return {
+              status: 'rejected',
+              reason: 'Both connector endpoints must exist.',
+            }
           }
         }
         if (!isAnchor(before) || isAnchor(after)) continue
         // Deleting or replacing an anchor must account for unchanged edges too. Indexes avoid
         // scanning the board, and the future values allow bundled deletes or endpoint changes.
         const oldEdges = this.sql.exec<{ id: string }>(
-          'SELECT id FROM board_elements WHERE source = ?1 OR target = ?1', elementId,
+          'SELECT id FROM board_elements WHERE source = ?1 OR target = ?1',
+          elementId,
         )
         for (const edge of oldEdges) {
           const next = futureElement(edge.id)
-          if (next?.type === 'connector' && (next.sourceId === elementId || next.targetId === elementId)) {
-            return { status: 'rejected', reason: 'Remove or reconnect the attached connector first.' }
+          if (
+            next?.type === 'connector' &&
+            (next.sourceId === elementId || next.targetId === elementId)
+          ) {
+            return {
+              status: 'rejected',
+              reason: 'Remove or reconnect the attached connector first.',
+            }
           }
         }
       }
@@ -117,29 +162,52 @@ export class RoomStore {
           continue
         }
         const connector = row.after.type === 'connector' ? row.after : null
-        this.sql.exec(`
+        this.sql.exec(
+          `
           INSERT INTO board_elements (id, data, bytes, source, target) VALUES (?, ?, ?, ?, ?)
           ON CONFLICT(id) DO UPDATE SET
             data = excluded.data, bytes = excluded.bytes, source = excluded.source, target = excluded.target
-        `, row.id, row.data, row.size, connector?.sourceId ?? null, connector?.targetId ?? null)
+        `,
+          row.id,
+          row.data,
+          row.size,
+          connector?.sourceId ?? null,
+          connector?.targetId ?? null,
+        )
       }
       const revision = state.revision + 1
-      this.sql.exec('UPDATE room_state SET revision = ?, bytes = ?, count = ? WHERE id = 1', revision, bytes, count)
-      this.sql.exec('INSERT INTO commits (user_id, id) VALUES (?, ?)', userId, id)
+      this.sql.exec(
+        'UPDATE room_state SET revision = ?, bytes = ?, count = ? WHERE id = 1',
+        revision,
+        bytes,
+        count,
+      )
+      this.sql.exec(
+        'INSERT INTO commits (user_id, id) VALUES (?, ?)',
+        userId,
+        id,
+      )
       return { status: 'applied', revision }
     })
   }
 
   private state() {
-    return this.sql.exec<RoomState>('SELECT revision, bytes, count, deleted FROM room_state WHERE id = 1').one()
+    return this.sql
+      .exec<RoomState>(
+        'SELECT revision, bytes, count, deleted FROM room_state WHERE id = 1',
+      )
+      .one()
   }
 
   private readElements(limit?: number) {
     const rows = limit
       ? this.sql.exec<BoardRow>(
-          'SELECT data FROM board_elements ORDER BY source IS NOT NULL, rowid LIMIT ?', limit,
+          'SELECT data FROM board_elements ORDER BY source IS NOT NULL, rowid LIMIT ?',
+          limit,
         )
-      : this.sql.exec<BoardRow>('SELECT data FROM board_elements ORDER BY rowid')
+      : this.sql.exec<BoardRow>(
+          'SELECT data FROM board_elements ORDER BY rowid',
+        )
     return Array.from(rows, ({ data }) => parseElement(data))
   }
 }
@@ -149,5 +217,9 @@ function isAnchor(element: BoardElement | null | undefined) {
 }
 
 function parseElement(data: string): BoardElement {
-  return JSON.parse(data) as BoardElement
+  const element = JSON.parse(data) as BoardElement
+  // Older rooms accepted five- and seven-digit hex; those rendered as neutral.
+  if (element.color.startsWith('#') && !isHexColor(element.color))
+    return { ...element, color: 'neutral' }
+  return element
 }

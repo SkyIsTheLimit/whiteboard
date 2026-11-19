@@ -1,0 +1,98 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@font-face {
+  font-family: "Geist Sans";
+  src: url("../../node_modules/geist/dist/fonts/geist-sans/Geist-Variable.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+
+@theme inline {
+  --color-background: var(--board-panel);
+  --color-foreground: var(--board-text);
+  --color-popover: var(--board-panel);
+  --color-popover-foreground: var(--board-text);
+  --color-primary: var(--board-accent);
+  --color-primary-foreground: var(--board-accent-text);
+  --color-secondary: var(--board-neutral);
+  --color-secondary-foreground: var(--board-neutral-text);
+  --color-muted: var(--board-selection-bg);
+  --color-muted-foreground: var(--board-muted);
+  --color-accent: var(--board-selection-bg);
+  --color-accent-foreground: var(--board-text);
+  --color-destructive: var(--board-danger);
+  --color-border: var(--board-border);
+  --color-input: var(--board-border);
+  --color-ring: var(--board-focus);
+}
+
+:root {
+  --presence-color-1: --theme(--color-amber-700);
+  --presence-color-2: --theme(--color-violet-700);
+  --presence-color-3: --theme(--color-teal-700);
+  --presence-color-4: --theme(--color-rose-700);
+  --presence-color-5: --theme(--color-blue-700);
+  --presence-foreground: --theme(--color-white);
+  color-scheme: light;
+  --board-bg: #f5f2eb;
+  --board-panel: #fcfaf5;
+  --board-text: #1b1b19;
+  --board-muted: #5c5954;
+  --board-border: #ddd8ce;
+  --board-accent: #315abd;
+  --board-accent-text: #fff;
+  --board-selection-bg: #dfe6f7;
+  --board-focus: #315abd;
+  --board-neutral: #20201e;
+  --board-neutral-text: #fcfaf5;
+  --board-danger: #9c2d24;
+  --board-shadow: 0 2px 4px #302a2110;
+}
+
+:root[data-theme='dark'] {
+  --presence-color-1: --theme(--color-amber-300);
+  --presence-color-2: --theme(--color-violet-300);
+  --presence-color-3: --theme(--color-teal-300);
+  --presence-color-4: --theme(--color-rose-300);
+  --presence-color-5: --theme(--color-blue-300);
+  --presence-foreground: --theme(--color-slate-950);
+  color-scheme: dark;
+  --board-bg: #1e1d1b;
+  --board-panel: #292724;
+  --board-text: #f6f4ee;
+  --board-muted: #c0bcb4;
+  --board-border: #48443d;
+  --board-accent: #9bb5ff;
+  --board-accent-text: #161e32;
+  --board-selection-bg: #343b4b;
+  --board-focus: #9bb5ff;
+  --board-neutral: #252320;
+  --board-neutral-text: #f6f4ee;
+  --board-danger: #f0a49b;
+  --board-shadow: 0 2px 4px #0004;
+}
+
+@layer base {
+  * { @apply border-border; }
+
+  html, body { min-height: 100%; }
+  body {
+    margin: 0;
+    background: var(--board-bg);
+    color: var(--board-text);
+    font: 15px/1.4 "Geist Sans", system-ui, sans-serif;
+  }
+  button:not(:disabled), summary { cursor: pointer; }
+  button:disabled { opacity: .55; }
+  :focus-visible { outline: 2px solid var(--board-focus); outline-offset: 2px; }
+  ::selection { background: var(--board-selection-bg); color: var(--board-text); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; }
+}
