@@ -26,33 +26,33 @@
 
 ## Use Locally
 
-Use npm with Node.js 22.13+ on the 22.x line or Node.js 24 or newer.
+Use Node.js 22.13+ on the 22.x line, or Node.js 24 or newer.
 
 ```sh
 npm ci
 cp .dev.vars.example .dev.vars
 ```
 
-Run `openssl rand -hex 32` and paste the output into `BETTER_AUTH_SECRET` in `.dev.vars`. Leave `BETTER_AUTH_URL` empty to use the local origin.
+Set `BETTER_AUTH_SECRET` in `.dev.vars` using `openssl rand -hex 32`. Leave `BETTER_AUTH_URL` empty locally.
 
 ```sh
 npm run db:migrate
 npm run dev
 ```
 
-Open the URL Vite prints and create an account. Wrangler keeps local D1 and Durable Object data in `.wrangler/state`.
+Open the URL Vite prints and create an account. Local data lives in `.wrangler/state`.
 
 <a name="how-to-use"></a>
 
-Use **Select** to move or resize items, and Shift-click to select more than one. Draw shapes and text, link shapes with **Connector**, and double-click an item to edit its label. Pan with **Hand** or use the bottom-right controls to zoom or fit the board.
+Draw or connect shapes, double-click to edit labels, and use **Hand** to pan.
 
-Board owners can use **Share** to invite viewers or editors. Invitees sign in to join. Revoking an invite stops new joins, and removing a member ends their access. To try collaboration locally, use two accounts in separate browser profiles.
+Owners can use **Share** to invite viewers or editors and revoke access. Try it with two accounts in separate browser profiles.
 
 ## Deploy to Cloudflare
 
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/SkyIsTheLimit/whiteboard)
 
-The button opens Cloudflare’s setup for cloning the repo, naming the Worker, and provisioning its resources. Use these values where prompted. [Cloudflare deploy button guide](https://developers.cloudflare.com/workers/platform/deploy-buttons/)
+Click the button to deploy to Cloudflare. You’ll be asked for these values.
 
 | Setup field               | Value                                                                                                                                    |
 | ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
@@ -62,17 +62,17 @@ The button opens Cloudflare’s setup for cloning the repo, naming the Worker, a
 | `BETTER_AUTH_SECRET`      | Generate a fresh value with `openssl rand -hex 32`.                                                                                      |
 | `BETTER_AUTH_URL`         | The public HTTPS origin, with no path, for example `https://whiteboard.example.com`.                                                     |
 
-Cloudflare provisions the D1 database and the SQLite Durable Object binding `BOARD_ROOMS` from the Wrangler config. If the public origin is only available after deployment, set `BETTER_AUTH_URL` in the Worker’s **Variables and Secrets** and deploy that setting before signing in.
+Cloudflare provisions D1 and `BOARD_ROOMS`. If you learn the public URL after deploying, set `BETTER_AUTH_URL` in **Variables and Secrets** and redeploy before signing in.
 
-For a manual deployment, create a D1 database with `npx wrangler d1 create whiteboard-test` and add its ID to the `DB` entry in `wrangler.jsonc`. Keep the `BOARD_ROOMS` binding and SQLite class migration. Run `npm run deploy` and configure the two auth values in the Worker dashboard. The deploy script builds, applies pending migrations to the remote `DB` binding, and publishes only after migrations succeed.
+Deploying manually? Run `npx wrangler d1 create whiteboard-test`, add the ID to `DB` in `wrangler.jsonc`, and keep the `BOARD_ROOMS` binding and SQLite migration. Run `npm run deploy` to build, migrate D1, and publish. Set both auth values in the Worker dashboard.
 
-For optional Google sign-in, set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` and register `https://<your-host>/api/auth/callback/google` as the redirect URI.
+For Google sign-in, set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`, then register `https://<your-host>/api/auth/callback/google`.
 
 ## How it works
 
-The TanStack Start and React client draws on Canvas 2D. A Cloudflare Worker serves the app and checks Better Auth sessions and board access in D1. Each board has a `BoardRoom` Durable Object with its own SQLite storage and hibernating WebSockets.
+The React client draws on Canvas 2D. A Cloudflare Worker checks sessions and access in D1. Each board saves edits to SQLite and syncs over WebSockets in its own Durable Object.
 
-These C4 dynamic diagrams show interactions in order. Solid arrows show requests, messages, and local actions. Dashed arrows show responses and server broadcasts. The editor, joining browser, and peer are instances of the same Whiteboard browser client. [C4 dynamic diagrams](https://c4model.com/diagrams/dynamic)
+Here’s how an edit works.
 
 ### Apply an edit
 
@@ -91,7 +91,7 @@ sequenceDiagram
     P->>P: 5b. Apply the revision and redraw
 ```
 
-If the room rejects an edit, the editor removes it from the pending queue, rebuilds the view from confirmed changes and remaining edits, and shows the reason.
+If the room rejects an edit, the client drops it, rebuilds the view, and shows why.
 
 ### Join a board and sync with peers
 
@@ -117,4 +117,6 @@ sequenceDiagram
     R-->>B: 11b. Broadcast the same presence update
 ```
 
-Connected clients follow the room’s ordered commits. A client that detects a gap reconnects for a fresh snapshot.
+If a client misses a revision, it reconnects for a fresh snapshot.
+
+Found a bug? [File an issue](https://github.com/SkyIsTheLimit/whiteboard/issues).
